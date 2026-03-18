@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Morse Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --paper: #f8f5ee;
+      --black: #111111;
+      --red: #c9342f;
+      --blue: #2250a8;
+      --yellow: #e0b21b;
+      --white: #fdfbf6;
+      --pad: 12px;
+      --line: 4px;
+      --gap: 0px;
+      --radius: 0px;
+      --ui-font: Futura, "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--black);
+      font-family: var(--ui-font);
+    }
+
+    body {
+      height: 100vh;
+      height: 100dvh;
+      padding: env(safe-area-inset-top) 12px env(safe-area-inset-bottom) 12px;
+    }
+
+    .canvas {
+      width: 100%;
+      max-width: 980px;
+      height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.35fr 0.9fr;
+      grid-template-rows: 0.82fr 1.18fr 0.38fr;
+      background: var(--black);
+      border: var(--line) solid var(--black);
+      overflow: hidden;
+    }
+
+    .block {
+      min-width: 0;
+      min-height: 0;
+      background: var(--white);
+      border-right: var(--line) solid var(--black);
+      border-bottom: var(--line) solid var(--black);
+    }
+
+    .tl {
+      grid-column: 1;
+      grid-row: 1;
+      background: var(--white);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .tr {
+      grid-column: 2;
+      grid-row: 1;
+      background: var(--blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .ml {
+      grid-column: 1;
+      grid-row: 2;
+      background: var(--paper);
+      padding: 12px;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto auto;
+      gap: 10px;
+    }
+
+    .mr {
+      grid-column: 2;
+      grid-row: 2;
+      background: var(--yellow);
+      padding: 12px;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 10px;
+    }
+
+    .bl {
+      grid-column: 1;
+      grid-row: 3;
+      background: var(--red);
+      color: white;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+    }
+
+    .br {
+      grid-column: 2;
+      grid-row: 3;
+      background: var(--white);
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .title {
+      display: grid;
+      gap: 4px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: clamp(26px, 5vw, 58px);
+      line-height: 0.9;
+      font-weight: 900;
+      letter-spacing: -0.05em;
+      text-transform: uppercase;
+    }
+
+    .subtitle,
+    .meta,
+    .footText,
+    .field label {
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .statusBox {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: clamp(18px, 3.7vw, 34px);
+      line-height: 0.95;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: -0.04em;
+      color: white;
+    }
+
+    .status-disconnected { color: var(--black); }
+    .status-connected { color: white; }
+    .status-tx { color: white; }
+    .status-waiting { color: var(--black); }
+    .status-error { color: white; }
+
+    .field {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .textWrap {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 5px;
+    }
+
+    textarea, input, button {
+      width: 100%;
+      border: var(--line) solid var(--black);
+      border-radius: 0;
+      outline: none;
+      box-shadow: none;
+      font: inherit;
+      color: var(--black);
+      background: var(--white);
+    }
+
+    input, textarea {
+      padding: 10px 11px;
+      font-size: 15px;
+    }
+
+    input {
+      height: 44px;
+    }
+
+    textarea {
+      min-height: 0;
+      height: 100%;
+      resize: none;
+      overflow: hidden;
+      line-height: 1.2;
+    }
+
+    button {
+      min-height: 46px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .row3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn-connect {
+      background: var(--white);
+      color: var(--black);
+    }
+
+    .btn-send {
+      background: var(--red);
+      color: white;
+    }
+
+    .stateMini {
+      width: 100%;
+      min-height: 44px;
+      border: var(--line) solid var(--black);
+      background: var(--white);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      overflow: hidden;
+    }
+
+    .meta {
+      align-self: end;
+      line-height: 1.25;
+    }
+
+    .footText {
+      text-align: center;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: env(safe-area-inset-top) 8px env(safe-area-inset-bottom) 8px;
+      }
+
+      .canvas {
+        height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        grid-template-columns: 1fr 132px;
+        grid-template-rows: 104px minmax(0, 1fr) 54px;
+      }
+
+      .tl {
+        padding: 10px;
+      }
+
+      .tr {
+        padding: 8px;
+      }
+
+      .ml, .mr {
+        padding: 8px;
+        gap: 8px;
+      }
+
+      .bl, .br {
+        padding: 8px 10px;
+      }
+
+      .title h1 {
+        font-size: clamp(24px, 8vw, 40px);
+      }
+
+      .subtitle,
+      .meta,
+      .footText,
+      .field label {
+        font-size: 9px;
+      }
+
+      .statusBox {
+        font-size: clamp(15px, 4.5vw, 22px);
+      }
+
+      input, textarea {
+        padding: 8px 9px;
+        font-size: 14px;
+      }
+
+      input {
+        height: 40px;
+      }
+
+      button {
+        min-height: 40px;
+        font-size: 12px;
+        padding: 8px 10px;
+      }
+
+      .stateMini {
+        min-height: 40px;
+        font-size: 11px;
+        padding: 8px 9px;
+      }
+
+      .row3 {
+        gap: 8px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .canvas {
+        grid-template-columns: 1fr 116px;
+        grid-template-rows: 94px minmax(0, 1fr) 48px;
+      }
+
+      .row3 {
+        grid-template-columns: 1fr;
+      }
+
+      .mr {
+        grid-template-rows: auto auto auto;
+      }
+
+      .meta {
+        align-self: start;
+      }
+
+      .title h1 {
+        font-size: 26px;
+      }
+
+      .statusBox {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <section class="block tl">
+      <div class="title">
+        <h1>Morse<br>Control</h1>
+        <div class="subtitle">Arduino → R5</div>
+      </div>
+      <div class="meta">Local / Minimal / Serial</div>
+    </section>
+
+    <section class="block tr" id="statusPanel">
+      <div id="statusBox" class="statusBox status-disconnected">Offline</div>
+    </section>
+
+    <section class="block ml">
+      <div class="field textWrap">
+        <label for="text">Texto</label>
+        <textarea id="text" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false">CQ CQ DE IVAN</textarea>
+      </div>
+
+      <div class="row3">
+        <div class="field">
+          <label for="baud">Baud</label>
+          <input id="baud" type="number" value="115200" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="wpm">WPM</label>
+          <input id="wpm" type="number" value="15" min="5" max="40" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="tone">Hz</label>
+          <input id="tone" type="number" value="700" min="300" max="2000" inputmode="numeric">
+        </div>
+      </div>
+
+      <button class="btn-send" onclick="sendMorse()">Transmitir</button>
+    </section>
+
+    <section class="block mr">
+      <div class="field">
+        <label>Estado</label>
+        <div id="stateText" class="stateMini">No conectado</div>
+      </div>
+
+      <button class="btn-connect" onclick="connectSerial()">Conectar</button>
+
+      <div class="meta">
+        Autodetecta<br>ttyUSB0 / ttyUSB1
+      </div>
+    </section>
+
+    <section class="block bl">
+      <div class="meta">Red / Blue / Yellow / White / Black</div>
+    </section>
+
+    <section class="block br">
+      <div class="footText">Minimal interface</div>
+    </section>
+  </div>
+
+  <script>
+    let detectedPort = "";
+
+    function setStatus(text, mode = "disconnected", smallText = "") {
+      const panel = document.getElementById("statusPanel");
+      const box = document.getElementById("statusBox");
+      const stateText = document.getElementById("stateText");
+
+      box.textContent = text;
+      stateText.textContent = smallText || text;
+
+      panel.style.background =
+        mode === "connected" ? "var(--blue)" :
+        mode === "tx" ? "var(--red)" :
+        mode === "waiting" ? "var(--yellow)" :
+        mode === "error" ? "var(--black)" :
+        "var(--white)";
+
+      box.className =
+        "statusBox " +
+        (mode === "connected" ? "status-connected" :
+         mode === "tx" ? "status-tx" :
+         mode === "waiting" ? "status-waiting" :
+         mode === "error" ? "status-error" :
+         "status-disconnected");
+    }
+
+    async function api(url, method = "GET", body = null) {
+      const opts = { method, headers: {} };
+      if (body) {
+        opts.headers["Content-Type"] = "application/json";
+        opts.body = JSON.stringify(body);
+      }
+      const r = await fetch(url, opts);
+      return await r.json();
+    }
+
+    async function autodetectPort() {
+      const data = await api("/api/ports");
+
+      if (!data.ok || !data.ports || !data.ports.length) {
+        detectedPort = "";
+        return false;
+      }
+
+      const preferred = data.ports.find(p =>
+        p.device === "/dev/ttyUSB0" || p.device === "/dev/ttyUSB1"
+      );
+
+      if (preferred) {
+        detectedPort = preferred.device;
+        return true;
+      }
+
+      detectedPort = "";
+      return false;
+    }
+
+    async function connectSerial() {
+      setStatus("Buscando", "waiting", "Buscando Arduino");
+
+      const found = await autodetectPort();
+
+      if (!found || !detectedPort) {
+        setStatus("Offline", "disconnected", "No encontrado");
+        return;
+      }
+
+      const baud = parseInt(document.getElementById("baud").value, 10);
+
+      setStatus("Conectando", "waiting", "Intentando conexión");
+
+      const data = await api("/api/connect", "POST", {
+        port: detectedPort,
+        baud
+      });
+
+      if (!data.ok) {
+        setStatus("Error", "error", data.error || "Error conectando");
+        return;
+      }
+
+      setStatus("Ready", "connected", "Conectado");
+    }
+
+    async function sendMorse() {
+      const text = document.getElementById("text").value;
+      const wpm = parseInt(document.getElementById("wpm").value, 10);
+      const tone = parseInt(document.getElementById("tone").value, 10);
+
+      const data = await api("/api/send", "POST", { text, wpm, tone });
+
+      if (!data.ok) {
+        setStatus("Error", "error", data.error || "Error enviando");
+        return;
+      }
+
+      setStatus("TX", "tx", "Transmitiendo");
+    }
+
+    async function refreshState() {
+      const data = await api("/api/log");
+      if (!data.ok || !data.log || !data.log.length) return;
+
+      const last = data.log[data.log.length - 1] || "";
+
+      if (last.includes("PONG")) setStatus("Ready", "connected", "Conectado");
+      if (last.includes("TX_START")) setStatus("TX", "tx", "Transmitiendo");
+      if (last.includes("TX_END")) setStatus("Ready", "connected", "Conectado");
+      if (last.includes("ERR|")) setStatus("Error", "error", "Error del dispositivo");
+    }
+
+    function preventIOSZoom() {
+      const inputs = document.querySelectorAll("input, textarea");
+      inputs.forEach(el => {
+        el.addEventListener("focus", () => {
+          el.style.fontSize = "16px";
+        });
+      });
+    }
+
+    (async function init() {
+      setStatus("Offline", "disconnected", "No conectado");
+      preventIOSZoom();
+      setInterval(refreshState, 1500);
+    })();
+  </script>
+</body>
+</html>

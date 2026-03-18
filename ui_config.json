@@ -1,0 +1,14 @@
+{
+  "port": "/dev/ttyUSB0",
+  "baud": 115200,
+  "wpm": 15,
+  "tone": 700,
+  "text": "JJ",
+  "beacon_interval_ms": 60000,
+  "presets": [
+    "CQ CQ DE IVAN",
+    "TEST TEST",
+    "SOS",
+    "DE IVAN K"
+  ]
+}
