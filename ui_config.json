@@ -1,14 +1,36 @@
 {
   "port": "/dev/ttyUSB0",
   "baud": 115200,
-  "wpm": 15,
-  "tone": 700,
-  "text": "JJ",
-  "beacon_interval_ms": 60000,
   "presets": [
     "CQ CQ DE IVAN",
     "TEST TEST",
     "SOS",
     "DE IVAN K"
-  ]
+  ],
+  "radios": {
+    "vhf": {
+      "wpm": 15,
+      "tone": 700,
+      "text": "xzczxczxczxc",
+      "beacon_interval_ms": 60000,
+      "ptt": false,
+      "beacon_enabled": false,
+      "busy": false,
+      "port": "/dev/ttyUSB0",
+      "baud": 115200,
+      "connected": true
+    },
+    "uhf": {
+      "wpm": 15,
+      "tone": 700,
+      "text": "zxc",
+      "beacon_interval_ms": 60000,
+      "ptt": false,
+      "beacon_enabled": false,
+      "busy": false,
+      "port": "/dev/ttyUSB0",
+      "baud": 115200,
+      "connected": true
+    }
+  }
 }
