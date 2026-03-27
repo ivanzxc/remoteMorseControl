@@ -9,9 +9,9 @@
   ],
   "radios": {
     "vhf": {
-      "wpm": 15,
-      "tone": 700,
-      "text": "xzczxczxczxc",
+      "wpm": 22,
+      "tone": 369,
+      "text": "Fluor mata",
       "beacon_interval_ms": 60000,
       "ptt": false,
       "beacon_enabled": false,
@@ -21,9 +21,9 @@
       "connected": true
     },
     "uhf": {
-      "wpm": 15,
-      "tone": 700,
-      "text": "zxc",
+      "wpm": 30,
+      "tone": 963,
+      "text": "Encadenado al anima",
       "beacon_interval_ms": 60000,
       "ptt": false,
       "beacon_enabled": false,

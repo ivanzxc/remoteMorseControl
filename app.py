@@ -99,6 +99,19 @@ def log(msg: str):
         logs.append(line)
 
 
+def clamp_int(value, default, min_value, max_value):
+    try:
+        n = int(value)
+    except Exception:
+        return default
+    return max(min_value, min(max_value, n))
+
+
+def normalize_text(text: str) -> str:
+    text = str(text).strip()
+    return text.replace("|", "/")
+
+
 def load_config():
     if not CONFIG_FILE.exists():
         save_config(DEFAULT_CONFIG)
@@ -120,6 +133,10 @@ def load_config():
     for rid in RADIO_IDS:
         base = DEFAULT_CONFIG["radios"][rid].copy()
         base.update(data.get("radios", {}).get(rid, {}))
+        base["wpm"] = clamp_int(base.get("wpm", 15), 15, 5, 60)
+        base["tone"] = clamp_int(base.get("tone", 700), 700, 200, 2000)
+        base["beacon_interval_ms"] = clamp_int(base.get("beacon_interval_ms", 60000), 60000, 1000, 86400000)
+        base["text"] = str(base.get("text", "CQ CQ DE IVAN")).strip() or "CQ CQ DE IVAN"
         merged["radios"][rid] = base
 
     return merged
@@ -148,17 +165,25 @@ for rid in RADIO_IDS:
 def update_radio_config(radio, *, text=None, wpm=None, tone=None, beacon_interval_ms=None, beacon_enabled=None):
     with config_lock:
         if text is not None:
+            text = str(text).strip()
             cfg["radios"][radio]["text"] = text
             state["radios"][radio]["text"] = text
+
         if wpm is not None:
-            cfg["radios"][radio]["wpm"] = int(wpm)
-            state["radios"][radio]["wpm"] = int(wpm)
+            wpm = clamp_int(wpm, 15, 5, 60)
+            cfg["radios"][radio]["wpm"] = wpm
+            state["radios"][radio]["wpm"] = wpm
+
         if tone is not None:
-            cfg["radios"][radio]["tone"] = int(tone)
-            state["radios"][radio]["tone"] = int(tone)
+            tone = clamp_int(tone, 700, 200, 2000)
+            cfg["radios"][radio]["tone"] = tone
+            state["radios"][radio]["tone"] = tone
+
         if beacon_interval_ms is not None:
-            cfg["radios"][radio]["beacon_interval_ms"] = int(beacon_interval_ms)
-            state["radios"][radio]["beacon_interval_ms"] = int(beacon_interval_ms)
+            beacon_interval_ms = clamp_int(beacon_interval_ms, 60000, 1000, 86400000)
+            cfg["radios"][radio]["beacon_interval_ms"] = beacon_interval_ms
+            state["radios"][radio]["beacon_interval_ms"] = beacon_interval_ms
+
         if beacon_enabled is not None:
             cfg["radios"][radio]["beacon_enabled"] = bool(beacon_enabled)
             state["radios"][radio]["beacon_enabled"] = bool(beacon_enabled)
@@ -194,18 +219,6 @@ def parse_device_line(line: str):
         return
 
     log(f"RX {line}")
-
-    # Ejemplos esperados desde Arduino:
-    # READY
-    # PTT|VHF|ON
-    # PTT|UHF|OFF
-    # TX|VHF|START
-    # TX|VHF|DONE
-    # TX|UHF|STOPPED
-    # BUSY|VHF
-    # BEACON|VHF|ON
-    # BEACON|VHF|OFF
-    # STATUS|ACTIVE=VHF|PTT_VHF=ON|PTT_UHF=OFF|BEACON_VHF=ON|BEACON_UHF=OFF
 
     parts = line.split("|")
     head = parts[0].upper()
@@ -321,7 +334,7 @@ def connect_serial(port: str, baud: int):
 
     log(f"Conectando a {port} @ {baud}...")
     ser = serial.Serial(port, baud, timeout=SERIAL_TIMEOUT)
-    time.sleep(2.0)  # reset típico Arduino UNO
+    time.sleep(2.0)
 
     state["connected"] = True
     state["port"] = port
@@ -359,9 +372,6 @@ def disconnect_serial():
         state["radios"][rid]["busy"] = False
 
 
-# =========================
-# ROUTES
-# =========================
 @app.route("/")
 def index():
     return render_template("index.html", config=cfg)
@@ -376,7 +386,7 @@ def api_ports():
 def api_connect():
     data = request.get_json(force=True, silent=True) or {}
     port = str(data.get("port", "")).strip()
-    baud = int(data.get("baud", 115200))
+    baud = clamp_int(data.get("baud", 115200), 115200, 1200, 2000000)
 
     connect_serial(port, baud)
     return jsonify({"ok": True})
@@ -430,8 +440,8 @@ def api_send():
     data = request.get_json(force=True, silent=True) or {}
     radio = str(data.get("radio", "")).strip().lower()
     text = str(data.get("text", "")).strip()
-    wpm = int(data.get("wpm", 15))
-    tone = int(data.get("tone", 700))
+    wpm = clamp_int(data.get("wpm", 15), 15, 5, 60)
+    tone = clamp_int(data.get("tone", 700), 700, 200, 2000)
 
     if radio not in RADIO_IDS:
         return jsonify({"ok": False, "error": "radio inválida"}), 400
@@ -440,8 +450,7 @@ def api_send():
 
     update_radio_config(radio, text=text, wpm=wpm, tone=tone)
 
-    # No usar "|" dentro del texto con este protocolo simple
-    safe_text = text.replace("|", "/")
+    safe_text = normalize_text(text)
     send_line(f"SEND|{radio.upper()}|{wpm}|{tone}|{safe_text}")
     return jsonify({"ok": True})
 
@@ -479,9 +488,9 @@ def api_beacon():
     radio = str(data.get("radio", "")).strip().lower()
     enabled = bool(data.get("enabled", False))
     text = str(data.get("text", "")).strip()
-    wpm = int(data.get("wpm", 15))
-    tone = int(data.get("tone", 700))
-    interval_ms = int(data.get("interval_ms", 60000))
+    wpm = clamp_int(data.get("wpm", 15), 15, 5, 60)
+    tone = clamp_int(data.get("tone", 700), 700, 200, 2000)
+    interval_ms = clamp_int(data.get("interval_ms", 60000), 60000, 1000, 86400000)
 
     if radio not in RADIO_IDS:
         return jsonify({"ok": False, "error": "radio inválida"}), 400
@@ -495,7 +504,7 @@ def api_beacon():
         beacon_enabled=enabled,
     )
 
-    safe_text = text.replace("|", "/")
+    safe_text = normalize_text(text)
     onoff = "ON" if enabled else "OFF"
     send_line(f"BEACON|{radio.upper()}|{onoff}|{interval_ms}|{wpm}|{tone}|{safe_text}")
     return jsonify({"ok": True})
